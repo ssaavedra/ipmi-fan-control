@@ -96,10 +96,30 @@ async fn main() {
 
             let mut interval = time::interval(Duration::from_secs(interval));
 
+            // Every hour, clear the air for 10 seconds
+            // This is to prevent dust accumulation and ensure the fan runs at full speed periodically
+            // This is useful for servers that run 24/7
+            let clear_air_duration = Duration::from_secs(a.clear_air_duration);
+            let clean_air_interval = Duration::from_secs(a.clear_air_interval);
+
             let mut last_speed = 0xff;
+            let mut last_air_clean_time = std::time::Instant::now();
 
             loop {
                 interval.tick().await;
+
+                if a.clear_air_interval != 0 && last_air_clean_time.elapsed() >= clean_air_interval {
+                    // Reset the last air clean time to now
+                    last_air_clean_time = std::time::Instant::now();
+                    info!("clearing air for 10 seconds");
+                    if let Err(e) = tool.set_fan_speed(a.max_fan_speed) {
+                        error!("failed to set fan speed to {}%: {}", a.max_fan_speed, e);
+                    }
+                    tokio::time::sleep(clear_air_duration).await;
+                    if let Err(e) = tool.set_fan_speed(0) {
+                        error!("failed to set fan speed to 0%: {}", e);
+                    }
+                }
 
                 if let Ok(temperature) = tool.get_cpu_temperature() {
                     let speed = calc_speed(
