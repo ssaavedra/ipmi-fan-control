@@ -6,11 +6,11 @@ A tool to control the fan speed by monitoring the temperature of CPU via IPMI.
 
 ## Why
 
-Our Dell R730 server's iDRAC is not works as expected. The fan always run full speed. And is very noisy, We digged but didn't fix out. So I build this to control the fan speed programmatically. And use RUST just for practice. Any contribute are welcome.
+Dell R730 server's iDRAC may work great for a datacenter, but it's loud for a homelab. This tool uses a ease-in cubic approach to the fan control, to ease in the curve at lowish temps.
 
 ## Usage
 
-Download from [release](https://github.com/yinheli/ipmi-fan-control/releases) page (prebuilt binary via github actions), or build from source code.
+Download from [release](https://github.com/ssaavedra/ipmi-fan-control/releases) page (prebuilt binary via github actions), or build from source code.
 
 ```bash
 cargo build --release

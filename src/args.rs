@@ -26,6 +26,8 @@ pub enum Command {
 
     /// Print CPU temperature and fan RPM
     Info,
+
+    PrintAllSpeeds(Auto),
 }
 
 #[derive(clap::Args)]
@@ -35,6 +37,14 @@ pub struct Auto {
     pub interval: u64,
 
     /// threshold CPU temperature for full speed Fan, default 70 (degrees), accepted value range [60-100]
-    #[arg(short, long, default_value = "70")]
+    #[arg(short = 'u', long, default_value = "70")]
     pub threshold: u16,
+
+    /// target temperature to keep CPU below, fans will run quietly below this temperature, default 35 (degrees), accepted value range [20-60]
+    #[arg(short = 'l', long, default_value = "35")]
+    pub target_temperature: u16,
+
+    /// max fan speed percentage, default 100, accepted value range [0-100]
+    #[arg(short, long, default_value = "100")]
+    pub max_fan_speed: u16,
 }

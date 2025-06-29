@@ -15,6 +15,34 @@ use tokio::time::{self, Duration};
 mod args;
 mod ipmi;
 
+fn calc_speed(temperature: u16, target_temperature: u16, threshold: u16, max_fan_speed: u16) -> u16 {
+    if temperature <= target_temperature {
+        0
+    } else if temperature >= threshold {
+        max_fan_speed
+    } else {
+        // Easing-in: fan speed increases slowly at first, then accelerates as temperature approaches threshold
+        let temp_range = (threshold - target_temperature) as f32;
+        let temp_pos = (temperature - target_temperature) as f32;
+        let ratio = temp_pos / temp_range;
+        // Ease-in cubic: y = x^3
+        let eased = ratio.powi(3);
+        (eased * max_fan_speed as f32).round() as u16
+    }
+}
+
+fn show_all_speeds(
+    target_temperature: u16,
+    threshold: u16,
+    max_fan_speed: u16,
+) {
+    println!("Temperature\tFan Speed");
+    for temp in 20..=100 {
+        let speed = calc_speed(temp, target_temperature, threshold, max_fan_speed);
+        println!("{:>3}°C\t\t{:>3}%", temp, speed);
+    }
+}
+
 #[tokio::main(flavor = "current_thread")]
 async fn main() {
     let args = args::Args::parse();
@@ -41,6 +69,13 @@ async fn main() {
     let tool = IpmiTool::new(Box::new(Cmd::new()));
 
     match args.command {
+        Command::PrintAllSpeeds(a) => {
+            let target_temperature = a.target_temperature;
+            let threshold = a.threshold;
+            let max_fan_speed = a.max_fan_speed;
+
+            show_all_speeds(target_temperature, threshold, max_fan_speed);
+        }
         Command::Auto(a) => {
             let mut interval = a.interval;
             if !RangeInclusive::new(5, 120).contains(&interval) {
@@ -49,7 +84,7 @@ async fn main() {
             }
 
             let mut threshold = a.threshold;
-            if !RangeInclusive::new(60, 100).contains(&threshold) {
+            if !RangeInclusive::new(40, 100).contains(&threshold) {
                 threshold = 70;
                 info!("invalid threshold, threshold set to {}", threshold);
             }
@@ -67,26 +102,12 @@ async fn main() {
                 interval.tick().await;
 
                 if let Ok(temperature) = tool.get_cpu_temperature() {
-                    // transfer temperature to fan speed
-                    let mut speed = match temperature {
-                        0..=40 => 0,
-                        41..=50 => 2,
-                        51..=55 => 10,
-                        56..=60 => 30,
-                        61..=62 => 40,
-                        63..=65 => 50,
-                        66..=70 => 90,
-                        71.. => 100,
-                    };
-
-                    if temperature >= threshold {
-                        speed = 100;
-                        info!("temperature reach threshold {}", temperature);
-                    }
-
-                    if speed > 100 {
-                        speed = 100;
-                    }
+                    let speed = calc_speed(
+                        temperature,
+                        a.target_temperature,
+                        threshold,
+                        a.max_fan_speed,
+                    );
 
                     if last_speed != speed {
                         match tool.set_fan_speed(speed) {
